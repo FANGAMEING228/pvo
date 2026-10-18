@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shahed Hunter — Field Air Defense (P2P Co-op)</title>
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#000;height:100%;
+    font-family:'Consolas','Courier New',monospace;user-select:none;}
+  canvas{display:block;}
+
+  #hud{position:fixed;inset:0;pointer-events:none;color:#d8ffe0;z-index:10;}
+
+  #topLeft{position:absolute;top:14px;left:14px;background:rgba(0,20,5,.45);
+    border:1px solid #3dff6a55;padding:10px 16px;border-radius:6px;font-size:14px;
+    line-height:1.5;text-shadow:0 0 4px #000;}
+  #topLeft b{color:#8fffb0;}
+
+  #waveBanner{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);
+    font-size:42px;font-weight:bold;color:#ffdf6a;text-shadow:0 0 12px #000,0 0 20px #ffb23d;
+    opacity:0;transition:opacity .5s;letter-spacing:3px;}
+
+  #msgEl{position:absolute;top:58%;left:50%;transform:translateX(-50%);
+    font-size:18px;color:#ff5c5c;text-shadow:0 0 6px #000;opacity:0;transition:opacity .3s;}
+
+  #crosshair{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
+    border:2px solid #3dff6a;border-radius:50%;box-shadow:0 0 6px #3dff6a99;
+    transition:border-color .15s,box-shadow .15s;}
+  #crosshair::after{content:"";position:absolute;top:50%;left:50%;width:4px;height:4px;
+    margin:-2px 0 0 -2px;background:#3dff6a;border-radius:50%;}
+  #crosshair.locked{border-color:#ff3d3d;box-shadow:0 0 10px #ff3d3d;}
+  #crosshair.locked::after{background:#ff3d3d;}
+  #crosshair.hit{border-color:#fff !important;box-shadow:0 0 16px #fff !important;}
+
+  #chargeBarWrap{position:absolute;top:calc(50% + 22px);left:50%;transform:translateX(-50%);
+    width:80px;height:6px;background:#00000066;border:1px solid #ffffff55;border-radius:3px;
+    overflow:hidden;opacity:0;transition:opacity .2s;}
+  #chargeBarFill{height:100%;width:0%;background:linear-gradient(90deg,#ff5c3d,#ffe65c);}
+
+  #weaponBar{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    display:flex;gap:8px;pointer-events:auto;}
+  .wslot{background:rgba(0,20,5,.55);border:2px solid #ffffff22;border-radius:8px;
+    padding:7px 11px;text-align:center;min-width:98px;cursor:pointer;transition:.15s;}
+  .wslot:hover{border-color:#ffffff55;}
+  .wslot.active{border-color:#3dff6a;box-shadow:0 0 10px #3dff6a66;background:rgba(10,40,15,.7);}
+  .wslot .key{display:block;font-size:10px;color:#aaa;}
+  .wslot .name{display:block;font-size:13px;font-weight:bold;color:#eaffea;margin:2px 0;}
+  .wslot .status{display:block;font-size:11px;color:#ffdf6a;}
+
+  #controlsHint{position:absolute;bottom:14px;left:14px;font-size:11px;color:#ffffffaa;
+    background:rgba(0,0,0,.35);padding:8px 10px;border-radius:6px;line-height:1.5;max-width:240px;}
+
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;
+    justify-content:center;z-index:50;}
+  .panel{background:#0c1a10;border:1px solid #3dff6a55;border-radius:10px;padding:30px 40px;
+    max-width:560px;text-align:center;color:#eafff0;box-shadow:0 0 40px #000;max-height:88vh;overflow:auto;}
+  .panel h1{color:#8fffb0;margin:0 0 8px;font-size:26px;letter-spacing:2px;}
+  .panel h2{color:#ffb23d;margin:4px 0 14px;font-weight:normal;font-size:14px;}
+  .panel p{font-size:13px;line-height:1.65;text-align:left;color:#cfeedd;}
+  .panel .big{font-size:20px;color:#ffdf6a;margin:12px 0;}
+  .panel>button{margin-top:14px;background:#3dff6a;border:none;color:#06260f;font-weight:bold;
+    font-size:16px;padding:12px 28px;border-radius:6px;cursor:pointer;letter-spacing:1px;}
+  .panel>button:hover{background:#6bffa0;}
+  .secondaryBtn{margin-top:10px;background:#1f3324 !important;color:#8fffb0 !important;
+    border:1px solid #3dff6a66 !important;font-size:13px !important;padding:9px 20px !important;}
+  #pauseScreen{display:none;}
+  .kbd{display:inline-block;background:#1f3324;border:1px solid #3dff6a66;border-radius:4px;
+    padding:1px 6px;color:#8fffb0;font-size:12px;}
+
+  #mpScreen{display:none;}
+  .mpCol{flex:1;min-width:250px;text-align:left;}
+  .mpCol h2{color:#8fffb0;font-size:14px;margin:0 0 6px;}
+  .mpCol p{font-size:11.5px;margin:6px 0 4px;color:#b9d9c5;}
+  .panel textarea{width:100%;height:56px;background:#071209;color:#9cffb6;
+    border:1px solid #3dff6a44;border-radius:4px;font-family:monospace;font-size:10.5px;
+    padding:6px;resize:vertical;box-sizing:border-box;}
+  .mpbtn{background:#1f3324;color:#8fffb0;border:1px solid #3dff6a66;padding:6px 10px;
+    border-radius:5px;font-size:11.5px;cursor:pointer;margin:4px 3px 2px 0;}
+  .mpbtn:hover{background:#2c4a33;}
+  #mpStatus{text-align:center;color:#8fffb0;margin-top:10px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="topLeft">
+    SCORE: <b id="scoreEl">0</b> &nbsp;|&nbsp;
+    WAVE: <b id="waveEl">1</b> &nbsp;|&nbsp;
+    ESCAPED: <b id="escapedEl">0</b> &nbsp;|&nbsp;
+    NET: <b id="netStatusEl">OFFLINE</b>
+  </div>
+
+  <div id="waveBanner"></div>
+  <div id="msgEl"></div>
+
+  <div id="crosshair"></div>
+  <div id="chargeBarWrap"><div id="chargeBarFill"></div></div>
+
+  <div id="weaponBar">
+    <div class="wslot" data-w="1">
+      <span class="key">[1]</span><span class="name">TURRET</span><span class="status">∞</span>
+    </div>
+    <div class="wslot" data-w="2">
+      <span class="key">[2]</span><span class="name">JAVELIN</span><span class="status" id="ammoJavelin">4/4</span>
+    </div>
+    <div class="wslot" data-w="3">
+      <span class="key">[3]</span><span class="name">D1-LDAK</span><span class="status">JAM</span>
+    </div>
+    <div class="wslot" data-w="4">
+      <span class="key">[4]</span><span class="name">P1-SUN</span><span class="status" id="ammoP1sun">5/5</span>
+    </div>
+  </div>
+
+  <div id="controlsHint">
+    MOUSE — look &nbsp;|&nbsp; <span class="kbd">LMB</span> fire/charge<br>
+    <span class="kbd">1</span>Turret <span class="kbd">2</span>Javelin
+    <span class="kbd">3</span>D1-LDAK <span class="kbd">4</span>P1-SUN<br>
+    Wheel — switch weapon
+  </div>
+</div>
+
+<div class="overlay" id="startScreen">
+  <div class="panel">
+    <h1>SHAHED HUNTER</h1>
+    <h2>FIELD AIR DEFENSE — CO-OP P2P</h2>
+    <p>
+      Waves of Shahed loitering munitions cross high overhead. They no longer dive at your
+      position — if you don't shoot them down in time they simply <b>fly away</b> (counted as "Escaped").
+      Rack up score before they slip past!<br><br>
+      🔫 <b>TURRET</b> — unlimited hitscan cannon, hold to spray.<br>
+      🚀 <b>JAVELIN</b> — locks on, homes in, splash damage. Limited ammo.<br>
+      📡 <b>D1-LDAK</b> — hold on target to jam its link; it tumbles down. Unlimited, slow.<br>
+      🎯 <b>P1-SUN</b> — heavy rail rifle. Pierces straight through, can kill several drones
+      in one shot. Limited rounds, slow recharge.<br><br>
+      Play solo, or connect <b>peer-to-peer</b> with a friend (no server, just a code exchange)
+      for co-op defense of the same sky.
+    </p>
+    <div class="big">Best Score: <span id="bestScoreStart">0</span></div>
+    <button id="startBtn">ENGAGE (SOLO / HOST)</button><br>
+    <button class="secondaryBtn" id="mpOpenBtn">🌐 MULTIPLAYER (P2P)</button>
+  </div>
+</div>
+
+<div class="overlay" id="mpScreen">
+  <div class="panel" style="max-width:680px;">
+    <h1>P2P MULTIPLAYER</h1>
+    <p style="text-align:center;">Direct peer-to-peer co-op via WebRTC — no server required.
+    One player hosts, the other joins by exchanging short text codes (paste via Discord/chat/etc).</p>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;">
+      <div class="mpCol">
+        <h2>HOST A GAME</h2>
+        <button class="mpbtn" id="createHostBtn">1. Create Lobby Code</button>
+        <textarea id="hostCode" readonly placeholder="Your code appears here..."></textarea>
+        <button class="mpbtn" id="copyHostBtn">Copy Code</button>
+        <p>2. Send this code to your friend. Paste their ANSWER code below:</p>
+        <textarea id="hostAnswerInput" placeholder="Paste friend's answer code..."></textarea>
+        <button class="mpbtn" id="hostConnectBtn">3. Connect</button>
+      </div>
+      <div class="mpCol">
+        <h2>JOIN A GAME</h2>
+        <p>1. Paste host's code here:</p>
+        <textarea id="joinOfferInput" placeholder="Paste host's code..."></textarea>
+        <button class="mpbtn" id="createAnswerBtn">2. Generate Answer Code</button>
+        <textarea id="joinCode" readonly placeholder="Your answer code appears here..."></textarea>
+        <button class="mpbtn" id="copyJoinBtn">Copy Code</button>
+        <p>3. Send this answer back to the host.</p>
+      </div>
+    </div>
+    <p id="mpStatus">Not connected</p>
+    <button id="mpCloseBtn">CLOSE</button>
+  </div>
+</div>
+
+<div class="overlay" id="gameOverScreen" style="display:none;">
+  <div class="panel">
+    <h1 id="gameOverTitle">SESSION ENDED</h1>
+    <div class="big">Final Score: <span id="finalScore">0</span></div>
+    <p style="text-align:center;">Wave reached: <b id="finalWave">1</b></p>
+    <div class="big">Best Score: <span id="bestScoreEnd">0</span></div>
+    <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<div class="overlay" id="pauseScreen">
+  <div class="panel">
+    <h1>PAUSED</h1>
+    <p style="text-align:center;">Pointer lock lost.</p>
+    <button id="resumeBtn">RESUME</button>
+    <br><button class="secondaryBtn" id="quitBtn">QUIT TO MENU</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================= CONFIG ============================= */
+const CFG = {
+  turretCooldown: 0.13,
+  javelinMax: 4,
+  javelinRecharge: 8.5,
+  javelinSpeed: 65,
+  javelinSplash: 9,
+  javelinLockAngle: 5.5,
+  javelinRange: 450,
+  ldakRequired: 1.7,
+  ldakLockAngle: 4.5,
+  ldakRange: 420,
+  p1sunMax: 5,
+  p1sunCooldown: 1.6,
+  p1sunRecharge: 9,
+  flyDistance: 520
+};
+
+/* ============================= STATE ============================= */
+let state = 'start'; // start | playing | gameover
+let pointerLocked = false;
+let score = 0, escapedCount = 0;
+let currentWeapon = 1;
+let isFiring = false, turretTimer = 0;
+let isCharging = false, ldakTarget = null, ldakProgress = 0;
+let javelinAmmo = CFG.javelinMax, javelinRechargeTimer = 0;
+let p1sunAmmo = CFG.p1sunMax, p1sunRechargeTimer = 0, p1sunCooldownTimer = 0;
+let yaw = 0, pitch = 0;
+let shakeTime = 0, shakeMag = 0;
+const basePos = new THREE.Vector3(0, 2, 0);
+
+const wave = {number:1, phase:'intermission', timer:0, toSpawn:0, spawned:0, spawnTimer:0, spawnInterval:2, speedMult:1};
+
+const drones = [];
+const tracers = [];
+const javelins = [];
+const explosions = [];
+
+/* ============================= NETWORKING (P2P WebRTC) ============================= */
+let pc = null, dc = null, netRole = null, netActive = false;
+let netIdCounter = 0;
+let netDroneMap = {};
+let netBroadcastTimer = 0, netSyncTimer = 0, lookBroadcastTimer = 0;
+let allyLook = {yaw:0, pitch:0, active:false, t:0};
+
+function netSend(obj){
+  if(dc && dc.readyState==='open'){
+    try{ dc.send(JSON.stringify(obj)); }catch(e){}
+  }
+}
+function waitIceComplete(pconn){
+  return new Promise(resolve=>{
+    if(pconn.iceGatheringState === 'complete') return resolve();
+    function check(){
+      if(pconn.iceGatheringState === 'complete'){ pconn.removeEventListener('icegatheringstatechange',check); resolve(); }
+    }
+    pconn.addEventListener('icegatheringstatechange', check);
+  });
+}
+function setupDataChannelHandlers(channel){
+  channel.onopen = ()=>{
+    netActive = true;
+    setMpStatus('Connected! Closing panel...');
+    updateHUD();
+    setTimeout(()=>{
+      document.getElementById('mpScreen').style.display='none';
+      if(state==='start') document.getElementById('startScreen').style.display='flex';
+    }, 900);
+  };
+  channel.onclose = ()=>{
+    netActive = false;
+    updateHUD();
+    showMessage('Peer disconnected');
+  };
+  channel.onmessage = (e)=>{
+    try{ const msg = JSON.parse(e.data); netHandleMessage(msg); }catch(err){}
+  };
+}
+async function createHostOffer(){
+  pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  netRole = 'host';
+  dc = pc.createDataChannel('game', {ordered:true});
+  setupDataChannelHandlers(dc);
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await waitIceComplete(pc);
+  document.getElementById('hostCode').value = btoa(JSON.stringify(pc.localDescription));
+}
+async function hostAcceptAnswer(){
+  const val = document.getElementById('hostAnswerInput').value.trim();
+  if(!val) throw new Error('empty');
+  const desc = JSON.parse(atob(val));
+  await pc.setRemoteDescription(desc);
+}
+async function createJoinAnswer(){
+  const val = document.getElementById('joinOfferInput').value.trim();
+  if(!val) throw new Error('empty');
+  const desc = JSON.parse(atob(val));
+  pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  netRole = 'client';
+  pc.ondatachannel = (e)=>{ dc = e.channel; setupDataChannelHandlers(dc); };
+  await pc.setRemoteDescription(desc);
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  await waitIceComplete(pc);
+  document.getElementById('joinCode').value = btoa(JSON.stringify(pc.localDescription));
+}
+function setMpStatus(t){ document.getElementById('mpStatus').textContent = t; }
+function copyField(id){
+  const el = document.getElementById(id);
+  el.select(); el.setSelectionRange(0,99999);
+  try{ document.execCommand('copy'); }catch(e){}
+  if(navigator.clipboard) navigator.clipboard.writeText(el.value).catch(()=>{});
+}
+document.getElementById('mpOpenBtn').addEventListener('click', ()=>{
+  document.getElementById('startScreen').style.display='none';
+  document.getElementById('mpScreen').style.display='flex';
+});
+document.getElementById('mpCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('mpScreen').style.display='none';
+  document.getElementById('startScreen').style.display='flex';
+});
+document.getElementById('createHostBtn').addEventListener('click', async ()=>{
+  setMpStatus('Generating code...');
+  try{ await createHostOffer(); setMpStatus('Share the code above. Waiting for answer...'); }
+  catch(e){ setMpStatus('Error creating lobby.'); }
+});
+document.getElementById('copyHostBtn').addEventListener('click', ()=>copyField('hostCode'));
+document.getElementById('hostConnectBtn').addEventListener('click', async ()=>{
+  try{ setMpStatus('Connecting...'); await hostAcceptAnswer(); }
+  catch(e){ setMpStatus('Invalid answer code.'); }
+});
+document.getElementById('createAnswerBtn').addEventListener('click', async ()=>{
+  try{ setMpStatus('Generating answer...'); await createJoinAnswer(); setMpStatus('Send the answer code back to host.'); }
+  catch(e){ setMpStatus('Invalid host code.'); }
+});
+document.getElementById('copyJoinBtn').addEventListener('click', ()=>copyField('joinCode'));
+
+function netHandleMessage(msg){
+  switch(msg.t){
+    case 'start':
+      if(netRole==='client' && state!=='playing') startGame();
+      break;
+    case 'wave':
+      wave.number = msg.number;
+      showBanner('WAVE '+msg.number);
+      updateHUD();
+      break;
+    case 'spawn':
+      if(netRole==='client'){
+        const drone = createShahed();
+        drone.position.set(msg.x,msg.y,msg.z);
+        drone.userData = {alive:true, falling:false, fallVel:0, netId:msg.id,
+          netTarget:new THREE.Vector3(msg.x,msg.y,msg.z), bobOffset:Math.random()*10};
+        scene.add(drone);
+        drones.push(drone);
+        netDroneMap[msg.id] = drone;
+      }
+      break;
+    case 'state':
+      if(netRole==='client'){
+        msg.d.forEach(entry=>{
+          const dr = netDroneMap[entry.id];
+          if(dr && dr.userData.alive && !dr.userData.falling){
+            dr.userData.netTarget.set(entry.x, entry.y, entry.z);
+          }
+        });
+      }
+      break;
+    case 'destroy': {
+      const d = netDroneMap[msg.id];
+      if(d) destroyDrone(d, msg.method, new THREE.Vector3(msg.x,msg.y,msg.z), true);
+      break;
+    }
+    case 'jam': {
+      const d = netDroneMap[msg.id];
+      if(d) jamDrone(d, true);
+      break;
+    }
+    case 'escape': {
+      const d = netDroneMap[msg.id];
+      if(d){ droneEscaped(d, true); const idx = drones.indexOf(d); if(idx>-1) drones.splice(idx,1); }
+      break;
+    }
+    case 'sync': {
+      score = msg.score; wave.number = msg.wave; escapedCount = msg.escaped;
+      updateHUD();
+      break;
+    }
+    case 'look':
+      allyLook.yaw = msg.yaw; allyLook.pitch = msg.pitch; allyLook.active = true; allyLook.t = 0;
+      break;
+    case 'end':
+      endSession(true);
+      break;
+  }
+}
+
+/* ============================= AUDIO ============================= */
+let audioCtx = null;
+function initAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function beep(freq,dur,type='square',vol=0.07){
+  if(!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type=type; o.frequency.value=freq; g.gain.value=vol;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+dur);
+  o.stop(audioCtx.currentTime+dur);
+}
+function noiseBurst(dur=0.3, vol=0.25){
+  if(!audioCtx) return;
+  const n = Math.floor(audioCtx.sampleRate*dur);
+  const buffer = audioCtx.createBuffer(1,n,audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<n;i++) data[i] = (Math.random()*2-1)*(1-i/n);
+  const src = audioCtx.createBufferSource(); src.buffer = buffer;
+  const g = audioCtx.createGain(); g.gain.value = vol;
+  src.connect(g); g.connect(audioCtx.destination);
+  src.start();
+}
+
+/* ============================= THREE SETUP ============================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fc7e8);
+scene.fog = new THREE.Fog(0x8fc7e8, 60, 650);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1200);
+camera.rotation.order = 'YXZ';
+camera.position.copy(basePos);
+scene.add(camera);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---- Lights ---- */
+scene.add(new THREE.AmbientLight(0xcfe8ff, 0.55));
+const sunLight = new THREE.DirectionalLight(0xfff4d6, 1.1);
+sunLight.position.set(120, 180, -80);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048,2048);
+sunLight.shadow.camera.left = -220; sunLight.shadow.camera.right = 220;
+sunLight.shadow.camera.top = 220; sunLight.shadow.camera.bottom = -220;
+sunLight.shadow.camera.far = 500;
+scene.add(sunLight);
+
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(14,16,16), new THREE.MeshBasicMaterial({color:0xfff2cc}));
+sunMesh.position.set(300,160,-380);
+scene.add(sunMesh);
+
+/* ---- Ground ---- */
+function createGrassTexture(){
+  const size=256, canvas=document.createElement('canvas');
+  canvas.width=canvas.height=size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#3c6a2d'; ctx.fillRect(0,0,size,size);
+  for(let i=0;i<2800;i++){
+    ctx.fillStyle = Math.random()>0.5 ? '#4e8238' : '#2f4f20';
+    ctx.fillRect(Math.random()*size, Math.random()*size, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(120,120);
+  return tex;
+}
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000,2000),
+  new THREE.MeshStandardMaterial({map:createGrassTexture()})
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+for(let i=0;i<50;i++){
+  const ang = Math.random()*Math.PI*2, dist = rand(25,180);
+  const x = Math.cos(ang)*dist, z = Math.sin(ang)*dist;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,2.4,6), new THREE.MeshStandardMaterial({color:0x5b3a22}));
+  trunk.position.set(x,1.2,z);
+  const foliage = new THREE.Mesh(new THREE.ConeGeometry(rand(1.2,1.9), rand(3,4.2), 7), new THREE.MeshStandardMaterial({color:0x2f5a24,flatShading:true}));
+  foliage.position.set(x, 3.4, z);
+  foliage.castShadow = true;
+  scene.add(trunk, foliage);
+}
+for(let i=0;i<22;i++){
+  const ang = Math.random()*Math.PI*2, dist = rand(15,170);
+  const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.4,1.1),0), new THREE.MeshStandardMaterial({color:0x8a8a82, flatShading:true}));
+  rock.position.set(Math.cos(ang)*dist, 0.3, Math.sin(ang)*dist);
+  rock.rotation.set(Math.random(),Math.random(),Math.random());
+  scene.add(rock);
+}
+for(let i=0;i<20;i++){
+  const a = (i/20)*Math.PI*2;
+  const bag = new THREE.Mesh(new THREE.BoxGeometry(1,0.5,0.6), new THREE.MeshStandardMaterial({color:0x7a7152}));
+  bag.position.set(Math.cos(a)*3.2, 0.25, Math.sin(a)*3.2);
+  bag.rotation.y = a;
+  bag.receiveShadow = true;
+  scene.add(bag);
+}
+
+/* ============================= WEAPON VIEWMODELS ============================= */
+function makeTurretModel(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,0.5), new THREE.MeshStandardMaterial({color:0x2b2b2b}));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.7,8), new THREE.MeshStandardMaterial({color:0x151515}));
+  barrel.rotation.x = Math.PI/2; barrel.position.z = -0.5;
+  g.add(body, barrel);
+  return g;
+}
+function makeJavelinModel(){
+  const g = new THREE.Group();
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,1.1,10), new THREE.MeshStandardMaterial({color:0x3a4a2a}));
+  tube.rotation.x = Math.PI/2;
+  const sight = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.2), new THREE.MeshStandardMaterial({color:0x111111}));
+  sight.position.set(0,0.14,-0.1);
+  g.add(tube, sight);
+  return g;
+}
+function makeLdakModel(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.22,0.65), new THREE.MeshStandardMaterial({color:0x202425}));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.6,8), new THREE.MeshStandardMaterial({color:0x101010}));
+  barrel.rotation.x = Math.PI/2; barrel.position.z = -0.5;
+  const dish = new THREE.Mesh(new THREE.CircleGeometry(0.16,16), new THREE.MeshStandardMaterial({color:0x444c44,side:THREE.DoubleSide}));
+  dish.position.set(0,0.18,-0.1);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.3,6), new THREE.MeshStandardMaterial({color:0x888}));
+  antenna.position.set(0,0.35,-0.1);
+  g.add(body, barrel, dish, antenna);
+  return g;
+}
+function makeP1SunModel(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.2,0.9), new THREE.MeshStandardMaterial({color:0x3b3b3b}));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,0.9,8), new THREE.MeshStandardMaterial({color:0x111111}));
+  barrel.rotation.x = Math.PI/2; barrel.position.z = -0.75;
+  const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.35,10), new THREE.MeshStandardMaterial({color:0x0a0a0a}));
+  scope.rotation.x = Math.PI/2; scope.position.set(0,0.16,-0.1);
+  const bipodL = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.35,6), new THREE.MeshStandardMaterial({color:0x222}));
+  bipodL.position.set(-0.08,-0.2,-0.55); bipodL.rotation.z = 0.3;
+  const bipodR = bipodL.clone(); bipodR.position.x = 0.08; bipodR.rotation.z = -0.3;
+  g.add(body, barrel, scope, bipodL, bipodR);
+  return g;
+}
+const viewOffset = new THREE.Vector3(0.32,-0.28,-0.6);
+const turretModel = makeTurretModel();
+const javelinModel = makeJavelinModel();
+const ldakModel = makeLdakModel();
+const p1sunModel = makeP1SunModel();
+[turretModel, javelinModel, ldakModel, p1sunModel].forEach(m=>{ m.position.copy(viewOffset); camera.add(m); });
+function refreshViewmodels(){
+  turretModel.visible = currentWeapon===1;
+  javelinModel.visible = currentWeapon===2;
+  ldakModel.visible = currentWeapon===3;
+  p1sunModel.visible = currentWeapon===4;
+}
+refreshViewmodels();
+
+/* ---- Ally look indicator (co-op aim marker) ---- */
+const allyMarker = new THREE.Mesh(
+  new THREE.RingGeometry(0.6,0.9,16),
+  new THREE.MeshBasicMaterial({color:0x33aaff, side:THREE.DoubleSide, transparent:true, opacity:0.85})
+);
+allyMarker.visible = false;
+scene.add(allyMarker);
+
+/* ============================= DRONE (SHAHED) ============================= */
+function createShahed(){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color:0x7a7a5c, flatShading:true});
+  const matDark = new THREE.MeshStandardMaterial({color:0x222222});
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.16,2.6), mat);
+  body.castShadow = true;
+  g.add(body);
+
+  const wingGeo = new THREE.BoxGeometry(2.0,0.06,0.95);
+  const wingL = new THREE.Mesh(wingGeo, mat);
+  wingL.position.set(-1.0,0,0.25); wingL.rotation.y = 0.35; wingL.castShadow=true;
+  const wingR = wingL.clone(); wingR.position.x = 1.0; wingR.rotation.y = -0.35;
+  g.add(wingL, wingR);
+
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.42,0.5), matDark);
+  fin.position.set(0,0.22,1.15);
+  g.add(fin);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.14,0.4,8), matDark);
+  nose.rotation.x = Math.PI/2; nose.position.set(0,0,-1.5);
+  g.add(nose);
+
+  return g;
+}
+
+function spawnShahed(speedMult){
+  const angle = Math.random()*Math.PI*2;
+  const radius = rand(160,220);
+  const height = rand(55,95);
+  const spawnPosV = new THREE.Vector3(Math.cos(angle)*radius, height, Math.sin(angle)*radius);
+  const exitAngle = angle + Math.PI + rand(-0.4,0.4);
+  const exitRadius = rand(200,260);
+  const exitHeight = height + rand(10,40);
+  const target = new THREE.Vector3(Math.cos(exitAngle)*exitRadius, exitHeight, Math.sin(exitAngle)*exitRadius);
+
+  const drone = createShahed();
+  drone.position.copy(spawnPosV);
+  const netId = ++netIdCounter;
+  drone.userData = {
+    alive:true, falling:false, fallVel:0,
+    speed: rand(7,10)*speedMult,
+    target, bobOffset: Math.random()*10,
+    netId, spawnPos: spawnPosV.clone()
+  };
+  scene.add(drone);
+  drones.push(drone);
+  netDroneMap[netId] = drone;
+  if(netActive && netRole==='host'){
+    netSend({t:'spawn', id:netId, x:spawnPosV.x, y:spawnPosV.y, z:spawnPosV.z});
+  }
+}
+
+function destroyDrone(d, method, point, fromNet=false){
+  if(drones.indexOf(d)===-1) return;
+  if(method==='turret') score += 10;
+  else if(method==='javelin') score += 25;
+  else if(method==='p1sun') score += 40;
+  spawnExplosion(point?point:d.position.clone(), method==='javelin'?8:(method==='p1sun'?5:3));
+  noiseBurst(method==='javelin'?0.4:0.2, method==='javelin'?0.35:0.18);
+  scene.remove(d);
+  drones.splice(drones.indexOf(d),1);
+  if(d.userData.netId!=null) delete netDroneMap[d.userData.netId];
+  updateHUD();
+  if(!fromNet && netActive){
+    const p = point||d.position;
+    netSend({t:'destroy', id:d.userData.netId, method, x:p.x, y:p.y, z:p.z});
+  }
+}
+function jamDrone(d, fromNet=false){
+  d.userData.alive = false;
+  d.userData.falling = true;
+  d.userData.fallVel = 0;
+  score += 20;
+  beep(900,0.12,'sine',0.1);
+  beep(500,0.18,'sine',0.08);
+  updateHUD();
+  if(!fromNet && netActive) netSend({t:'jam', id:d.userData.netId});
+}
+function droneEscaped(d, fromNet=false){
+  if(!drones.includes(d)) return;
+  escapedCount++;
+  scene.remove(d);
+  if(d.userData.netId!=null) delete netDroneMap[d.userData.netId];
+  updateHUD();
+  if(!fromNet && netActive) netSend({t:'escape', id:d.userData.netId});
+}
+function triggerShake(time,mag){ shakeTime = time; shakeMag = mag; }
+
+function updateDrones(delta, elapsed){
+  const isClient = netRole==='client';
+  for(let i=drones.length-1;i>=0;i--){
+    const d = drones[i], ud = d.userData;
+    if(ud.falling){
+      ud.fallVel -= 16*delta;
+      d.position.y += ud.fallVel*delta;
+      d.rotation.x += 6*delta;
+      d.rotation.z += 4*delta;
+      if(d.position.y <= 0.3){
+        spawnExplosion(d.position.clone(), 2.2);
+        scene.remove(d);
+        if(ud.netId!=null) delete netDroneMap[ud.netId];
+        drones.splice(i,1);
+      }
+      continue;
+    }
+    if(!ud.alive) continue;
+
+    if(isClient){
+      if(ud.netTarget){
+        const prevPos = d.position.clone();
+        d.position.lerp(ud.netTarget, Math.min(1, delta*6));
+        if(d.position.distanceTo(prevPos) > 0.03) d.lookAt(ud.netTarget);
+      }
+      d.position.y += Math.sin(elapsed*2+ud.bobOffset)*0.01;
+      continue;
+    }
+
+    // host / singleplayer authoritative simulation
+    const toTarget = ud.target.clone().sub(d.position);
+    const dist = toTarget.length();
+    toTarget.normalize();
+    d.position.addScaledVector(toTarget, ud.speed*delta);
+    d.position.y += Math.sin(elapsed*2+ud.bobOffset)*0.015;
+    d.lookAt(ud.target);
+    const traveled = d.position.distanceTo(ud.spawnPos);
+    if(dist < 10 || traveled > CFG.flyDistance){
+      droneEscaped(d);
+      drones.splice(i,1);
+    }
+  }
+}
+
+/* ============================= TARGETING HELPERS ============================= */
+function getDroneUnderCrosshair(maxAngleDeg, maxRange){
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  let best = null, bestAngle = Infinity;
+  for(const d of drones){
+    const ud = d.userData;
+    if(!ud.alive || ud.falling) continue;
+    const toDrone = d.position.clone().sub(camera.position);
+    const dist = toDrone.length();
+    if(dist > maxRange) continue;
+    toDrone.normalize();
+    const angle = THREE.MathUtils.radToDeg(camDir.angleTo(toDrone));
+    if(angle < maxAngleDeg && angle < bestAngle){ bestAngle = angle; best = d; }
+  }
+  return best;
+}
+
+/* ============================= EFFECTS ============================= */
+function spawnExplosion(pos, size){
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1,10,10),
+    new THREE.MeshBasicMaterial({color:0xffaa33, transparent:true, opacity:1, blending:THREE.AdditiveBlending})
+  );
+  mesh.position.copy(pos);
+  mesh.scale.setScalar(0.1);
+  scene.add(mesh);
+  const light = new THREE.PointLight(0xffaa33, 3, size*6);
+  light.position.copy(pos);
+  scene.add(light);
+  explosions.push({mesh, light, age:0, duration:0.45, maxSize:size});
+}
+function updateExplosions(delta){
+  for(let i=explosions.length-1;i>=0;i--){
+    const e = explosions[i];
+    e.age += delta;
+    const t = e.age/e.duration;
+    e.mesh.scale.setScalar(0.1 + e.maxSize*Math.min(t*1.6,1));
+    e.mesh.material.opacity = Math.max(0,1-t);
+    e.light.intensity = Math.max(0,3*(1-t));
+    if(e.age >= e.duration){
+      scene.remove(e.mesh); scene.remove(e.light);
+      explosions.splice(i,1);
+    }
+  }
+}
+
+function spawnTracer(start,end,color=0xffff66,fadeTime=0.08){
+  const geo = new THREE.BufferGeometry().setFromPoints([start,end]);
+  const mat = new THREE.LineBasicMaterial({color, transparent:true, opacity:0.9});
+  const line = new THREE.Line(geo,mat);
+  scene.add(line);
+  tracers.push({line, age:0, fadeTime});
+}
+function updateTracers(delta){
+  for(let i=tracers.length-1;i>=0;i--){
+    const t = tracers[i];
+    t.age += delta;
+    t.line.material.opacity = Math.max(0, 0.9 - (t.age/t.fadeTime)*0.9);
+    if(t.age > t.fadeTime){ scene.remove(t.line); tracers.splice(i,1); }
+  }
+}
+
+const beamLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0xff2222})
+);
+beamLine.visible = false;
+scene.add(beamLine);
+function showBeam(a,b){ beamLine.geometry.setFromPoints([a,b]); beamLine.visible = true; }
+function hideBeam(){ beamLine.visible = false; }
+
+/* ============================= WEAPONS ============================= */
+const raycaster = new THREE.Raycaster();
+
+function fireTurret(){
+  raycaster.setFromCamera({x:0,y:0}, camera);
+  const intersects = raycaster.intersectObjects(drones, true);
+  const start = camera.position.clone().add(new THREE.Vector3(0.3,-0.25,-0.3).applyQuaternion(camera.quaternion));
+  let end;
+  if(intersects.length > 0){
+    end = intersects[0].point;
+    let obj = intersects[0].object;
+    while(obj && !drones.includes(obj)) obj = obj.parent;
+    if(obj && obj.userData.alive && !obj.userData.falling){
+      destroyDrone(obj, 'turret', intersects[0].point);
+      flashHit();
+    }
+  } else {
+    end = camera.position.clone().add(raycaster.ray.direction.clone().multiplyScalar(400));
+  }
+  spawnTracer(start,end);
+  beep(1000,0.04,'square',0.05);
+}
+
+function createMissileMesh(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,1.4,8), new THREE.MeshStandardMaterial({color:0x3a4a2a}));
+  body.rotation.x = Math.PI/2;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.3,8), new THREE.MeshStandardMaterial({color:0x222222}));
+  tip.rotation.x = Math.PI/2; tip.position.z = -0.85;
+  g.add(body, tip);
+  return g;
+}
+function fireJavelin(){
+  if(javelinAmmo <= 0){ showMessage('NO AMMO'); return; }
+  const target = getDroneUnderCrosshair(CFG.javelinLockAngle, CFG.javelinRange);
+  if(!target){ showMessage('NO LOCK'); return; }
+  javelinAmmo--;
+  const startPos = camera.position.clone().add(new THREE.Vector3(0.32,-0.28,-0.6).applyQuaternion(camera.quaternion));
+  const m = createMissileMesh();
+  m.position.copy(startPos);
+  const initDir = target.position.clone().sub(startPos).normalize();
+  m.userData = {target, dir:initDir.clone(), speed:CFG.javelinSpeed, life:0};
+  m.lookAt(startPos.clone().add(initDir));
+  scene.add(m);
+  javelins.push(m);
+  beep(180,0.3,'sawtooth',0.15);
+  updateHUD();
+}
+function explodeJavelin(m){
+  spawnExplosion(m.position.clone(), CFG.javelinSplash);
+  noiseBurst(0.45,0.4);
+  triggerShake(0.1,0.08);
+  drones.slice().forEach(d=>{
+    if(d.userData.alive && !d.userData.falling && d.position.distanceTo(m.position) < CFG.javelinSplash){
+      destroyDrone(d,'javelin', d.position.clone());
+    }
+  });
+  scene.remove(m);
+}
+function updateJavelins(delta){
+  for(let i=javelins.length-1;i>=0;i--){
+    const m = javelins[i], ud = m.userData;
+    ud.life += delta;
+    let aimPoint = null;
+    if(ud.target && drones.includes(ud.target) && ud.target.userData.alive && !ud.target.userData.falling){
+      aimPoint = ud.target.position;
+    }
+    if(aimPoint){
+      const desired = aimPoint.clone().sub(m.position).normalize();
+      ud.dir.lerp(desired, Math.min(1,4*delta)).normalize();
+    }
+    m.position.addScaledVector(ud.dir, ud.speed*delta);
+    m.lookAt(m.position.clone().add(ud.dir));
+    const distToTarget = aimPoint ? m.position.distanceTo(aimPoint) : Infinity;
+    if(distToTarget < 4 || ud.life > 6){
+      explodeJavelin(m);
+      javelins.splice(i,1);
+    }
+  }
+}
+
+function updateLdak(delta){
+  if(currentWeapon===3 && isCharging){
+    const target = getDroneUnderCrosshair(CFG.ldakLockAngle, CFG.ldakRange);
+    if(target){
+      if(ldakTarget !== target){ ldakTarget = target; ldakProgress = 0; }
+      ldakProgress += delta;
+      showBeam(camera.position, target.position);
+      setChargeUI(true, ldakProgress/CFG.ldakRequired);
+      if(ldakProgress >= CFG.ldakRequired){
+        jamDrone(ldakTarget);
+        ldakTarget = null; ldakProgress = 0;
+        hideBeam();
+        setChargeUI(false,0);
+      }
+    } else {
+      ldakTarget = null; ldakProgress = 0;
+      hideBeam();
+      setChargeUI(false,0);
+    }
+  } else {
+    hideBeam();
+    setChargeUI(false,0);
+  }
+}
+
+function fireP1Sun(){
+  if(p1sunAmmo <= 0){ showMessage('NO ROUNDS'); return; }
+  if(p1sunCooldownTimer > 0){ return; }
+  p1sunAmmo--; p1sunCooldownTimer = CFG.p1sunCooldown;
+  raycaster.setFromCamera({x:0,y:0}, camera);
+  const hits = raycaster.intersectObjects(drones, true);
+  const start = camera.position.clone().add(new THREE.Vector3(0.3,-0.2,-0.4).applyQuaternion(camera.quaternion));
+  let endPoint = camera.position.clone().add(raycaster.ray.direction.clone().multiplyScalar(500));
+  const hitDrones = new Set();
+  hits.forEach(h=>{
+    let obj = h.object;
+    while(obj && !drones.includes(obj)) obj = obj.parent;
+    if(obj && obj.userData.alive && !obj.userData.falling) hitDrones.add(obj);
+  });
+  if(hits.length>0) endPoint = hits[hits.length-1].point;
+  let killed = 0;
+  hitDrones.forEach(obj=>{ destroyDrone(obj,'p1sun', obj.position.clone()); killed++; });
+  spawnTracer(start, endPoint, 0xffffff, 0.15);
+  if(killed>0) flashHit();
+  triggerShake(0.15,0.1);
+  beep(140,0.25,'sawtooth',0.25);
+  noiseBurst(0.3,0.3);
+  updateHUD();
+}
+
+/* ============================= INPUT ============================= */
+function switchWeapon(n){
+  currentWeapon = n;
+  isFiring = false; isCharging = false; ldakTarget=null; ldakProgress=0;
+  hideBeam(); setChargeUI(false,0);
+  refreshViewmodels();
+  updateHUD();
+}
+document.querySelectorAll('.wslot').forEach(el=>{
+  el.addEventListener('click', ()=> switchWeapon(parseInt(el.dataset.w)));
+});
+window.addEventListener('keydown', e=>{
+  if(e.key==='1') switchWeapon(1);
+  else if(e.key==='2') switchWeapon(2);
+  else if(e.key==='3') switchWeapon(3);
+  else if(e.key==='4') switchWeapon(4);
+});
+window.addEventListener('wheel', e=>{
+  if(state!=='playing') return;
+  let n = currentWeapon + (e.deltaY>0?1:-1);
+  if(n<1) n=4; if(n>4) n=1;
+  switchWeapon(n);
+});
+
+renderer.domElement.addEventListener('click', ()=>{
+  if(state==='playing' && !pointerLocked) renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', ()=>{
+  pointerLocked = document.pointerLockElement === renderer.domElement;
+  if(state==='playing'){
+    document.getElementById('pauseScreen').style.display = pointerLocked ? 'none':'flex';
+  }
+});
+document.addEventListener('mousemove', e=>{
+  if(!pointerLocked) return;
+  yaw -= e.movementX*0.0022;
+  pitch -= e.movementY*0.0022;
+  pitch = Math.max(-1.2, Math.min(1.3, pitch));
+  camera.rotation.set(pitch,yaw,0);
+});
+document.addEventListener('mousedown', e=>{
+  if(state!=='playing' || !pointerLocked || e.button!==0) return;
+  if(currentWeapon===1){ isFiring = true; turretTimer = CFG.turretCooldown; }
+  else if(currentWeapon===2){ fireJavelin(); }
+  else if(currentWeapon===3){ isCharging = true; }
+  else if(currentWeapon===4){ fireP1Sun(); }
+});
+document.addEventListener('mouseup', e=>{
+  if(e.button!==0) return;
+  isFiring = false;
+  isCharging = false;
+  ldakTarget = null; ldakProgress = 0;
+  hideBeam(); setChargeUI(false,0);
+});
+
+/* ============================= HUD ============================= */
+const crosshairEl = document.getElementById('crosshair');
+const chargeWrap = document.getElementById('chargeBarWrap');
+const chargeFill = document.getElementById('chargeBarFill');
+const msgEl = document.getElementById('msgEl');
+const bannerEl = document.getElementById('waveBanner');
+let msgTimeout=null, bannerTimeout=null;
+
+function showMessage(text){
+  msgEl.textContent = text;
+  msgEl.style.opacity = 1;
+  clearTimeout(msgTimeout);
+  msgTimeout = setTimeout(()=>{ msgEl.style.opacity = 0; }, 900);
+}
+function showBanner(text){
+  bannerEl.textContent = text;
+  bannerEl.style.opacity = 1;
+  clearTimeout(bannerTimeout);
+  bannerTimeout = setTimeout(()=>{ bannerEl.style.opacity = 0; }, 2200);
+}
+function setChargeUI(show, pct){
+  chargeWrap.style.opacity = show?1:0;
+  chargeFill.style.width = Math.min(100,pct*100)+'%';
+}
+function flashHit(){
+  crosshairEl.classList.add('hit');
+  setTimeout(()=>crosshairEl.classList.remove('hit'), 80);
+}
+function updateCrosshairPreview(){
+  if(currentWeapon===2 || currentWeapon===3){
+    const t = getDroneUnderCrosshair(currentWeapon===2?CFG.javelinLockAngle:CFG.ldakLockAngle,
+                                      currentWeapon===2?CFG.javelinRange:CFG.ldakRange);
+    crosshairEl.classList.toggle('locked', !!t);
+  } else {
+    crosshairEl.classList.remove('locked');
+  }
+}
+function updateHUD(){
+  document.getElementById('scoreEl').textContent = score;
+  document.getElementById('waveEl').textContent = wave.number;
+  document.getElementById('escapedEl').textContent = escapedCount;
+  document.getElementById('netStatusEl').textContent = netActive ? ('ONLINE ('+netRole.toUpperCase()+')') : 'OFFLINE';
+  document.getElementById('ammoJavelin').textContent = javelinAmmo+'/'+CFG.javelinMax;
+  document.getElementById('ammoP1sun').textContent = p1sunAmmo+'/'+CFG.p1sunMax;
+  document.querySelectorAll('.wslot').forEach(el=>{
+    el.classList.toggle('active', parseInt(el.dataset.w)===currentWeapon);
+  });
+}
+
+/* ============================= WAVES (host/singleplayer authoritative) ============================= */
+function beginWave(n){
+  wave.number = n;
+  wave.phase = 'spawning';
+  wave.toSpawn = 3 + n*2;
+  wave.spawned = 0;
+  wave.spawnTimer = 0;
+  wave.spawnInterval = Math.max(0.5, 2.2 - n*0.08);
+  wave.speedMult = 1 + (n-1)*0.12;
+  showBanner('WAVE '+n);
+  updateHUD();
+  if(netActive && netRole==='host') netSend({t:'wave', number:n});
+}
+function updateSpawning(delta){
+  if(wave.phase==='spawning'){
+    wave.spawnTimer += delta;
+    if(wave.spawnTimer >= wave.spawnInterval && wave.spawned < wave.toSpawn){
+      spawnShahed(wave.speedMult);
+      wave.spawned++;
+      wave.spawnTimer = 0;
+    }
+    if(wave.spawned >= wave.toSpawn) wave.phase = 'waiting';
+  } else if(wave.phase==='waiting'){
+    if(drones.length===0){
+      wave.phase = 'intermission';
+      wave.timer = 4;
+      showBanner('WAVE '+wave.number+' CLEARED');
+    }
+  } else if(wave.phase==='intermission'){
+    wave.timer -= delta;
+    if(wave.timer <= 0) beginWave(wave.number+1);
+  }
+}
+
+/* ============================= GAME FLOW ============================= */
+function getBest(){ return parseInt(localStorage.getItem('shahedHunterBest')||'0'); }
+function setBest(v){ localStorage.setItem('shahedHunterBest', v); }
+document.getElementById('bestScoreStart').textContent = getBest();
+
+function resetGameObjects(){
+  drones.slice().forEach(d=>scene.remove(d)); drones.length = 0;
+  javelins.slice().forEach(m=>scene.remove(m)); javelins.length = 0;
+  tracers.slice().forEach(t=>scene.remove(t.line)); tracers.length = 0;
+  explosions.slice().forEach(e=>{scene.remove(e.mesh);scene.remove(e.light);}); explosions.length = 0;
+  netDroneMap = {};
+  if(!netActive) netIdCounter = 0;
+}
+function startGame(){
+  const isClient = netActive && netRole==='client';
+  initAudio();
+  resetGameObjects();
+  score = 0; escapedCount = 0;
+  javelinAmmo = CFG.javelinMax; javelinRechargeTimer = 0;
+  p1sunAmmo = CFG.p1sunMax; p1sunRechargeTimer = 0; p1sunCooldownTimer = 0;
+  isFiring=false; isCharging=false; ldakTarget=null; ldakProgress=0;
+  currentWeapon = 1; refreshViewmodels();
+  yaw = 0; pitch = 0; camera.rotation.set(0,0,0);
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('gameOverScreen').style.display = 'none';
+  document.getElementById('pauseScreen').style.display = 'none';
+  state = 'playing';
+  clock.getDelta();
+  if(!isClient) beginWave(1);
+  updateHUD();
+  renderer.domElement.requestPointerLock();
+  if(netActive && netRole==='host') netSend({t:'start'});
+}
+function attemptStart(){
+  if(netActive && netRole==='client'){ showMessage('Waiting for host to start...'); return; }
+  startGame();
+}
+function endSession(fromNet=false){
+  if(state==='gameover') return;
+  state = 'gameover';
+  document.exitPointerLock();
+  const best = Math.max(getBest(), score);
+  setBest(best);
+  document.getElementById('gameOverTitle').textContent = 'SESSION ENDED';
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalWave').textContent = wave.number;
+  document.getElementById('bestScoreEnd').textContent = best;
+  document.getElementById('gameOverScreen').style.display = 'flex';
+  document.getElementById('pauseScreen').style.display = 'none';
+  if(!fromNet && netActive) netSend({t:'end'});
+}
+document.getElementById('startBtn').addEventListener('click', attemptStart);
+document.getElementById('restartBtn').addEventListener('click', attemptStart);
+document.getElementById('resumeBtn').addEventListener('click', ()=>{
+  renderer.domElement.requestPointerLock();
+});
+document.getElementById('quitBtn').addEventListener('click', ()=> endSession(false));
+
+/* ============================= MAIN LOOP ============================= */
+const clock = new THREE.Clock();
+
+function updateShake(delta){
+  if(shakeTime > 0){
+    shakeTime -= delta;
+    const m = shakeMag * (shakeTime/0.35);
+    camera.position.set(
+      basePos.x + (Math.random()-0.5)*m,
+      basePos.y + (Math.random()-0.5)*m,
+      basePos.z + (Math.random()-0.5)*m
+    );
+  } else {
+    camera.position.copy(basePos);
+  }
+}
+function updateAllyMarker(delta){
+  if(netActive && allyLook.active){
+    allyLook.t += delta;
+    const dir = new THREE.Vector3(0,0,-1);
+    const euler = new THREE.Euler(allyLook.pitch, allyLook.yaw, 0, 'YXZ');
+    dir.applyEuler(euler);
+    allyMarker.position.copy(camera.position).addScaledVector(dir, 40);
+    allyMarker.lookAt(camera.position);
+    allyMarker.visible = allyLook.t < 1.0;
+  } else {
+    allyMarker.visible = false;
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.1);
+  const elapsed = clock.elapsedTime;
+
+  if(state==='playing' && pointerLocked){
+    if(netRole!=='client') updateSpawning(delta);
+    updateDrones(delta, elapsed);
+    updateTracers(delta);
+    updateJavelins(delta);
+    updateLdak(delta);
+    updateExplosions(delta);
+    updateShake(delta);
+    updateAllyMarker(delta);
+    updateCrosshairPreview();
+
+    if(isFiring && currentWeapon===1){
+      turretTimer += delta;
+      if(turretTimer >= CFG.turretCooldown){
+        fireTurret();
+        turretTimer = 0;
+      }
+    }
+    if(javelinAmmo < CFG.javelinMax){
+      javelinRechargeTimer += delta;
+      if(javelinRechargeTimer >= CFG.javelinRecharge){
+        javelinAmmo++; javelinRechargeTimer = 0; updateHUD();
+      }
+    }
+    if(p1sunCooldownTimer > 0) p1sunCooldownTimer -= delta;
+    if(p1sunAmmo < CFG.p1sunMax){
+      p1sunRechargeTimer += delta;
+      if(p1sunRechargeTimer >= CFG.p1sunRecharge){
+        p1sunAmmo++; p1sunRechargeTimer = 0; updateHUD();
+      }
+    }
+
+    if(netActive && netRole==='host'){
+      netBroadcastTimer += delta;
+      if(netBroadcastTimer > 0.1){
+        netBroadcastTimer = 0;
+        const list = [];
+        drones.forEach(d=>{
+          if(d.userData.alive && !d.userData.falling){
+            list.push({id:d.userData.netId, x:+d.position.x.toFixed(2), y:+d.position.y.toFixed(2), z:+d.position.z.toFixed(2)});
+          }
+        });
+        if(list.length) netSend({t:'state', d:list});
+      }
+      netSyncTimer += delta;
+      if(netSyncTimer > 1){
+        netSyncTimer = 0;
+        netSend({t:'sync', score, wave:wave.number, escaped:escapedCount});
+      }
+    }
+    if(netActive){
+      lookBroadcastTimer += delta;
+      if(lookBroadcastTimer > 0.15){
+        lookBroadcastTimer = 0;
+        netSend({t:'look', yaw:+yaw.toFixed(3), pitch:+pitch.toFixed(3)});
+      }
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
